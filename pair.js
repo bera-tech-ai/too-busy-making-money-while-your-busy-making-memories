@@ -19,6 +19,8 @@ if (fs.existsSync('2nd_dev_config.env')) require('dotenv').config({ path: './2nd
 
 const { sms } = require("./msg");
 
+// FIXED BAILEYS IMPORT - Use this exact code
+const baileysImport = require('@whiskeysockets/baileys');
 const {
     default: makeWASocket,
     useMultiFileAuthState,
@@ -33,10 +35,25 @@ const {
     generateWAMessageFromContent,
     DisconnectReason,
     fetchLatestBaileysVersion,
-    makeInMemoryStore,
     getAggregateVotesInPollMessage
-} = require('@whiskeysockets/baileys');
+} = baileysImport;
 
+// Try to get makeInMemoryStore - handle if it doesn't exist
+let makeInMemoryStore;
+try {
+    makeInMemoryStore = baileysImport.makeInMemoryStore || 
+                       require('@whiskeysockets/baileys/lib/Store').makeInMemoryStore;
+} catch (e) {
+    console.warn('⚠️ makeInMemoryStore not found, using mock store');
+    makeInMemoryStore = () => ({
+        bind: () => {},
+        loadMessage: async () => undefined,
+        saveMessage: () => {},
+        messages: {},
+        readMessages: () => {},
+        clearMessages: () => {}
+    });
+}
 // MongoDB Configuration
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://ellyongiro8:QwXDXE6tyrGpUTNb@cluster0.tyxcmm9.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
 
@@ -4485,9 +4502,13 @@ async function EmpirePair(number, res) {
         const logger = pino({ level: 'silent' });
 
         // Create store
-        const store = makeInMemoryStore({ logger });
-        stores.set(sanitizedNumber, store);
-
+        // Temporary fix - create a simple mock store
+const store = {
+    bind: () => {},
+    loadMessage: async () => undefined,
+    saveMessage: () => {},
+    messages: {}
+};
         const socket = makeWASocket({
             version,
             auth: {
